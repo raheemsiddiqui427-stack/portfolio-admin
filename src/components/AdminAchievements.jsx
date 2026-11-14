@@ -23,7 +23,6 @@ export default function AdminAchievements() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Fetch achievements from Firebase Realtime Database
   useEffect(() => {
     const achievementsRef = ref(db, "achievements");
     const unsubscribe = onValue(achievementsRef, (snapshot) => {
@@ -49,8 +48,6 @@ export default function AdminAchievements() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Upload image to Cloudinary (same pattern as AdminProfile.jsx)
-  // Only the hosted image URL is stored in Realtime Database, never base64.
   const uploadImage = async (file) => {
     if (!file.type.startsWith("image/")) {
       toast.error("Please choose an image file (JPG, PNG or WebP).");
@@ -85,7 +82,6 @@ export default function AdminAchievements() {
     }
   };
 
-  // Handle file select
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -93,7 +89,6 @@ export default function AdminAchievements() {
     }
   };
 
-  // Remove image
   const removeImage = () => {
     setFormData((prev) => ({ ...prev, imageUrl: "" }));
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -226,9 +221,6 @@ export default function AdminAchievements() {
                   <button type="button" onClick={removeImage} className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-400 transition hover:bg-red-500/20">Remove Image</button>
                 )}
               </div>
-              {/* FIX: OR divider was left open, so the URL label/input/preview
-                  were children of this flex row and rendered side-by-side
-                  squeezed. It is now closed before the URL field. */}
               <div className="my-3 flex items-center gap-3">
                 <div className="flex-1 border-t border-white/10" />
                 <span className="text-xs font-medium uppercase tracking-wider text-gray-500">OR</span>
