@@ -9,6 +9,7 @@ import { ConfirmationModal } from "./ConfirmationModal";
 export default function AdminAchievements() {
   const [achievements, setAchievements] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingAchievement, setEditingAchievement] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -19,7 +20,6 @@ export default function AdminAchievements() {
     description: "",
     imageUrl: "",
   });
-  const [imageFile, setImageFile] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -48,9 +48,18 @@ export default function AdminAchievements() {
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
+
   // Upload image to Cloudinary (same pattern as AdminProfile.jsx)
   // Only the hosted image URL is stored in Realtime Database, never base64.
   const uploadImage = async (file) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose an image file (JPG, PNG or WebP).");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image is too large. Please choose an image under 5 MB.");
+      return;
+    }
     const data = new FormData();
     data.append("file", file);
     data.append("upload_preset", "portfolio-image");
@@ -59,10 +68,9 @@ export default function AdminAchievements() {
       const response = await fetch(
         "https://api.cloudinary.com/v1_1/dociusesl/image/upload",
         { method: "POST", body: data }
-        );
+      );
       const result = await response.json();
-      if (result.secure_url) {
-        setImageFile(result.secure_url);
+      if (response.ok && result.secure_url) {
         setFormData((prev) => ({ ...prev, imageUrl: result.secure_url }));
       } else {
         console.error("Image upload failed:", result);
@@ -73,8 +81,9 @@ export default function AdminAchievements() {
       toast.error("Image upload failed. Please try again.");
     } finally {
       setUploadingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
-  }
+  };
 
   // Handle file select
   const handleFileSelect = (e) => {
@@ -86,7 +95,6 @@ export default function AdminAchievements() {
 
   // Remove image
   const removeImage = () => {
-    setImageFile(null);
     setFormData((prev) => ({ ...prev, imageUrl: "" }));
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -94,7 +102,6 @@ export default function AdminAchievements() {
   const resetForm = () => {
     setFormData({ title: "", event: "", date: "", description: "", imageUrl: "" });
     setEditingAchievement(null);
-    setImageFile(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
     setShowForm(false);
   };
@@ -105,7 +112,11 @@ export default function AdminAchievements() {
       toast.error("Please enter a title and an event.");
       return;
     }
-    setLoading(true);
+    if (uploadingImage) {
+      toast.error("Please wait for the image to finish uploading.");
+      return;
+    }
+    setSaving(true);
     try {
       if (editingAchievement) {
         await update(ref(db, `achievements/${editingAchievement}`), {
@@ -125,7 +136,7 @@ export default function AdminAchievements() {
       console.error("Error saving achievement:", error);
       toast.error("Failed to save achievement. Please try again.");
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
@@ -138,7 +149,6 @@ export default function AdminAchievements() {
       description: achievement.description || "",
       imageUrl: achievement.imageUrl || achievement.badgeUrl || "",
     });
-    setImageFile(achievement.imageUrl || achievement.badgeUrl || "");
     setShowForm(true);
   };
 
@@ -207,14 +217,23 @@ export default function AdminAchievements() {
             </div>
             <div className="md:col-span-2">
               <div className="flex flex-wrap items-center gap-2">
-              <label htmlFor="ach-image-upload" className="flex cursor-pointer items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-gray-300 transition hover:bg-white/10">
-              <FiUpload size={14} />
-                {uploadingImage ? "Uploading..." : "Choose image from computer"}</label><input id="ach-image-upload" type="file" accept="image/*" ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
-              
+                <label htmlFor="ach-image-upload" className="flex cursor-pointer items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-gray-300 transition hover:bg-white/10">
+                  <FiUpload size={14} />
+                  {uploadingImage ? "Uploading..." : "Choose image from computer"}
+                </label>
+                <input id="ach-image-upload" type="file" accept="image/*" ref={fileInputRef} onChange={handleFileSelect} disabled={uploadingImage} className="hidden" />
                 {formData.imageUrl && (
-          <button type="button" onClick={removeImage} className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-400 transition hover:bg-red-500/20">Remove Image</button>
-              )}</div>
-              <div className="my-3 flex items-center gap-3"><div className="flex-1 border-t border-white/10" /><span className="text-xs font-medium uppercase tracking-wider text-gray-500">OR</span><div className="flex-1 border-t border-white/10" /></di
+                  <button type="button" onClick={removeImage} className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-400 transition hover:bg-red-500/20">Remove Image</button>
+                )}
+              </div>
+              {/* FIX: OR divider was left open, so the URL label/input/preview
+                  were children of this flex row and rendered side-by-side
+                  squeezed. It is now closed before the URL field. */}
+              <div className="my-3 flex items-center gap-3">
+                <div className="flex-1 border-t border-white/10" />
+                <span className="text-xs font-medium uppercase tracking-wider text-gray-500">OR</span>
+                <div className="flex-1 border-t border-white/10" />
+              </div>
               <label className="mb-1.5 block text-sm font-medium text-gray-300" htmlFor="ach-image-url">Image / Badge URL</label>
               <input id="ach-image-url" type="url" name="imageUrl" value={formData.imageUrl} onChange={handleInputChange} placeholder="https://..." className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-white placeholder-gray-500 outline-none focus:border-cyan-400" />
               {formData.imageUrl && (
@@ -223,8 +242,8 @@ export default function AdminAchievements() {
             </div>
           </div>
           <div className="flex gap-3">
-            <button type="submit" disabled={uploadingImage} className="rounded-xl bg-gradient-to-r from-cyan-500 to-purple-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:opacity-90">
-              {editingAchievement ? "Update Achievement" : "Add Achievement"}
+            <button type="submit" disabled={uploadingImage || saving} className="rounded-xl bg-gradient-to-r from-cyan-500 to-purple-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50">
+              {saving ? "Saving..." : editingAchievement ? "Update Achievement" : "Add Achievement"}
             </button>
             <button type="button" onClick={resetForm} className="rounded-xl border border-white/10 bg-white/5 px-6 py-2.5 text-sm font-semibold text-gray-300 transition hover:bg-white/10">
               Cancel

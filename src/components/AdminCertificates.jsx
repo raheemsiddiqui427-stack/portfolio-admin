@@ -10,6 +10,7 @@ import { ConfirmationModal } from "./ConfirmationModal";
 export default function AdminCertificates() {
   const [certificates, setCertificates] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingCertificate, setEditingCertificate] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -20,7 +21,6 @@ export default function AdminCertificates() {
     credentialUrl: "",
     imageUrl: "",
   });
-  const [imageFile, setImageFile] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -49,9 +49,18 @@ export default function AdminCertificates() {
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
+
   // Upload image to Cloudinary (same pattern as AdminProfile.jsx)
   // Only the hosted image URL is stored in Realtime Database, never base64.
   const uploadImage = async (file) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose an image file (JPG, PNG or WebP).");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image is too large. Please choose an image under 5 MB.");
+      return;
+    }
     const data = new FormData();
     data.append("file", file);
     data.append("upload_preset", "portfolio-image");
@@ -59,14 +68,10 @@ export default function AdminCertificates() {
     try {
       const response = await fetch(
         "https://api.cloudinary.com/v1_1/dociusesl/image/upload",
-        {
-          method: "POST",
-          body: data,
-        }
-    );
+        { method: "POST", body: data }
+      );
       const result = await response.json();
-      if (result.secure_url) {
-        setImageFile(result.secure_url);
+      if (response.ok && result.secure_url) {
         setFormData((prev) => ({ ...prev, imageUrl: result.secure_url }));
       } else {
         console.error("Image upload failed:", result);
@@ -77,20 +82,20 @@ export default function AdminCertificates() {
       toast.error("Image upload failed. Please try again.");
     } finally {
       setUploadingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
+
   // Handle file select
   const handleFileSelect = (e) => {
-
     const file = e.target.files[0];
     if (file) {
       uploadImage(file);
     }
   };
-    // Remove image
-  const removeImage = () => {
 
-    setImageFile(null);
+  // Remove image
+  const removeImage = () => {
     setFormData((prev) => ({ ...prev, imageUrl: "" }));
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -98,7 +103,6 @@ export default function AdminCertificates() {
   const resetForm = () => {
     setFormData({ title: "", issuer: "", issueDate: "", credentialUrl: "", imageUrl: "" });
     setEditingCertificate(null);
-    setImageFile(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
     setShowForm(false);
   };
@@ -109,7 +113,11 @@ export default function AdminCertificates() {
       toast.error("Please enter a title and an issuer.");
       return;
     }
-    setLoading(true);
+    if (uploadingImage) {
+      toast.error("Please wait for the image to finish uploading.");
+      return;
+    }
+    setSaving(true);
     try {
       if (editingCertificate) {
         await update(ref(db, `certificates/${editingCertificate}`), {
@@ -129,7 +137,7 @@ export default function AdminCertificates() {
       console.error("Error saving certificate:", error);
       toast.error("Failed to save certificate. Please try again.");
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
@@ -142,7 +150,6 @@ export default function AdminCertificates() {
       credentialUrl: certificate.credentialUrl || "",
       imageUrl: certificate.imageUrl || "",
     });
-    setImageFile(certificate.imageUrl || "");
     setShowForm(true);
   };
 
@@ -211,14 +218,24 @@ export default function AdminCertificates() {
             </div>
             <div className="md:col-span-2">
               <div className="flex flex-wrap items-center gap-2">
-              <label htmlFor="cert-image-upload" className="flex cursor-pointer items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-gray-300 transition hover:bg-white/10">
-              
-                <FiUpload size={14} />
-                {uploadingImage ? "Uploading..." : "Choose image from computer"}
-              </label><input id="cert-image-upload" type="file" accept="image/*" ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
+                <label htmlFor="cert-image-upload" className="flex cursor-pointer items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-gray-300 transition hover:bg-white/10">
+                  <FiUpload size={14} />
+                  {uploadingImage ? "Uploading..." : "Choose image from computer"}
+                </label>
+                <input id="cert-image-upload" type="file" accept="image/*" ref={fileInputRef} onChange={handleFileSelect} disabled={uploadingImage} className="hidden" />
                 {formData.imageUrl && (
-          <button type="button" onClick={removeImage} className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-400 transition hover:bg-red-500/20">Remove Image</button)}</d
-                                                                                                                                                                                                                        <div className="my-3 flex items-center gap-3"><div className="flex-1 border-t border-white/10" /><span className="text-xs font-medium uppercase tracking-wider text-gray-500">OR</span><div className="flex-1 border-t border-white/10" /></div>              <label className="mb-1.5 block text-sm font-medium text-gray-300" htmlFor="cert-image-url">Image URL</label>
+                  <button type="button" onClick={removeImage} className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-400 transition hover:bg-red-500/20">Remove Image</button>
+                )}
+              </div>
+              {/* FIX: the original file had a broken tag here — "</d" instead of
+                  "</div>" — which breaks the whole file's JSX. The flex row
+                  above is now closed properly, the OR divider is its own
+                  block, and the duplicated "Image URL" label is removed. */}
+              <div className="my-3 flex items-center gap-3">
+                <div className="flex-1 border-t border-white/10" />
+                <span className="text-xs font-medium uppercase tracking-wider text-gray-500">OR</span>
+                <div className="flex-1 border-t border-white/10" />
+              </div>
               <label className="mb-1.5 block text-sm font-medium text-gray-300" htmlFor="cert-image-url">Image URL</label>
               <input id="cert-image-url" type="url" name="imageUrl" value={formData.imageUrl} onChange={handleInputChange} placeholder="https://example.com/certificate.png" className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-gray-500 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20" />
               {formData.imageUrl && (
@@ -227,8 +244,8 @@ export default function AdminCertificates() {
             </div>
           </div>
           <div className="flex gap-3">
-            <button type="submit" disabled={uploadingImage} className="rounded-xl bg-gradient-to-r from-cyan-500 to-purple-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-cyan-500/25 transition hover:from-cyan-400 hover:to-purple-500">
-              {editingCertificate ? "Update Certificate" : "Add Certificate"}
+            <button type="submit" disabled={uploadingImage || saving} className="rounded-xl bg-gradient-to-r from-cyan-500 to-purple-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-cyan-500/25 transition hover:from-cyan-400 hover:to-purple-500 disabled:opacity-50">
+              {saving ? "Saving..." : editingCertificate ? "Update Certificate" : "Add Certificate"}
             </button>
             <button type="button" onClick={resetForm} className="rounded-xl border border-white/10 bg-white/5 px-6 py-2.5 text-sm font-semibold text-gray-300 transition hover:bg-white/10">
               Cancel
