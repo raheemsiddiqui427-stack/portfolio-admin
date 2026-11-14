@@ -24,7 +24,6 @@ export default function AdminCertificates() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Fetch certificates from Firebase Realtime Database
   useEffect(() => {
     const certificatesRef = ref(db, "certificates");
     const unsubscribe = onValue(certificatesRef, (snapshot) => {
@@ -50,8 +49,6 @@ export default function AdminCertificates() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Upload image to Cloudinary (same pattern as AdminProfile.jsx)
-  // Only the hosted image URL is stored in Realtime Database, never base64.
   const uploadImage = async (file) => {
     if (!file.type.startsWith("image/")) {
       toast.error("Please choose an image file (JPG, PNG or WebP).");
@@ -86,7 +83,6 @@ export default function AdminCertificates() {
     }
   };
 
-  // Handle file select
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -94,7 +90,6 @@ export default function AdminCertificates() {
     }
   };
 
-  // Remove image
   const removeImage = () => {
     setFormData((prev) => ({ ...prev, imageUrl: "" }));
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -227,10 +222,6 @@ export default function AdminCertificates() {
                   <button type="button" onClick={removeImage} className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-400 transition hover:bg-red-500/20">Remove Image</button>
                 )}
               </div>
-              {/* FIX: the original file had a broken tag here — "</d" instead of
-                  "</div>" — which breaks the whole file's JSX. The flex row
-                  above is now closed properly, the OR divider is its own
-                  block, and the duplicated "Image URL" label is removed. */}
               <div className="my-3 flex items-center gap-3">
                 <div className="flex-1 border-t border-white/10" />
                 <span className="text-xs font-medium uppercase tracking-wider text-gray-500">OR</span>
