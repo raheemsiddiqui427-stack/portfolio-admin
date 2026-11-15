@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { motion } from "framer-motion";
-import { FiPlus, FiEdit2, FiTrash2, FiX, FiStar, FiCalendar, FiUpload } from "react-icons/fi";
+import { FiPlus, FiEdit2, FiTrash2, FiX, FiStar, FiCalendar, FiUpload, FiExternalLink } from "react-icons/fi";
 import { db } from "../firebase/config";
 import { ref, push, onValue, update, remove } from "firebase/database";
 import { toast } from "react-toastify";
@@ -19,6 +19,7 @@ export default function AdminAchievements() {
     date: "",
     description: "",
     imageUrl: "",
+    credentialUrl: "",
   });
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef(null);
@@ -95,7 +96,7 @@ export default function AdminAchievements() {
   };
 
   const resetForm = () => {
-    setFormData({ title: "", event: "", date: "", description: "", imageUrl: "" });
+    setFormData({ title: "", event: "", date: "", description: "", imageUrl: "", credentialUrl: "" });
     setEditingAchievement(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
     setShowForm(false);
@@ -143,6 +144,7 @@ export default function AdminAchievements() {
       date: achievement.date || "",
       description: achievement.description || "",
       imageUrl: achievement.imageUrl || achievement.badgeUrl || "",
+      credentialUrl: achievement.credentialUrl || "",
     });
     setShowForm(true);
   };
@@ -205,6 +207,10 @@ export default function AdminAchievements() {
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-300" htmlFor="ach-date">Date</label>
               <input id="ach-date" type="date" name="date" value={formData.date} onChange={handleInputChange} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-white outline-none focus:border-cyan-400" />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-300" htmlFor="ach-credential-url">Credential URL</label>
+              <input id="ach-credential-url" type="url" name="credentialUrl" value={formData.credentialUrl} onChange={handleInputChange} placeholder="https://... (certificate verify link, optional)" className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-white placeholder-gray-500 outline-none focus:border-cyan-400" />
             </div>
             <div className="md:col-span-2">
               <label className="mb-1.5 block text-sm font-medium text-gray-300" htmlFor="ach-description">Description</label>
@@ -274,6 +280,11 @@ export default function AdminAchievements() {
                 )}
                 {achievement.description && (
                   <p className="text-sm text-gray-400">{achievement.description}</p>
+                )}
+                {achievement.credentialUrl && (
+                  <a href={achievement.credentialUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 pt-1 text-xs font-semibold text-cyan-400 hover:underline">
+                    View Credential <FiExternalLink size={12} />
+                  </a>
                 )}
                 <div className="flex gap-2 pt-2">
                   <button onClick={() => startEdit(achievement)} className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-gray-300 transition hover:bg-white/10">
